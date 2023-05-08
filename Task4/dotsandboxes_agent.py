@@ -27,9 +27,9 @@ logger = logging.getLogger('be.kuleuven.cs.dtai.dotsandboxes')
 
 #MCTS parameters
 uct_c=math.sqrt(2)
-max_simulations=50
+max_simulations=30
 solve=True
-num_playouts=2
+num_playouts=3
 
 
 def get_agent_for_tournament(player_id):
@@ -120,4 +120,3 @@ def main(argv=None):
 if __name__ == "__main__":
     sys.exit(main())
 
-from testagent import myAgent
