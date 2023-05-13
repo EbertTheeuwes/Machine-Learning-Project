@@ -9,7 +9,8 @@ from open_spiel.python.algorithms import random_agent
 from dotsandboxes_agentDQN import Agent
 from dotsandboxes_agent_random import AgentRand
 
-# test where 5x5 game is actually played (representation in DQN agent is 7x7)
+# test where other game is actually played (representation in DQN agent is 7x7)
+# change dimensions here to play different game
 game = pyspiel.load_game("dots_and_boxes(num_rows=5,num_cols=5)")
 env = rl_environment.Environment("dots_and_boxes(num_rows=5,num_cols=5)")
 num_players = env.num_players
@@ -22,20 +23,19 @@ eval_agents = [dqn_agent, rand_agent]
 
 num_winsDQN = 0
 num_winsRandom = 0
-ittwithouterror = 0
 
 for itt in range(500):
     time_step = env.reset()
     while not time_step.last():
         player_id = time_step.observations["current_player"]
-        #print("state 5x5")
+        #print("outer state")
         #print(env.get_state)
         action = eval_agents[player_id].step(env.get_state)
 
         for agent in eval_agents:
             if agent.player_id != player_id:
                 agent.inform_action(env.get_state, player_id, action)
-        #print("action in 5x5", action)
+        #print("action in outer state ", action, "player id ", player_id)
 
         time_step = env.step([action])
 

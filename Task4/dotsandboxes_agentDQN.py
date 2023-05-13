@@ -47,6 +47,9 @@ class Agent(pyspiel.Bot):
         the tournament. Initializing the agent should thus take no more than
         a few seconds.
         """
+        # BELANGRIJK: gaan er van uit dat telkens een nieuwe game gestart wordt, niewe agent gemaakt
+        # wordt en dus deze init terug gecalled wordt, anders nog op bepaalde manier voor zorgen dat
+        # rl_environment gereset wordt.
         pyspiel.Bot.__init__(self)
         self.player_id = player_id
         self.env = rl_environment.Environment("dots_and_boxes(num_rows=7,num_cols=7)")
@@ -56,11 +59,12 @@ class Agent(pyspiel.Bot):
         self.num_actions = self.env.action_spec()["num_actions"]
         self.info_state_size = self.env.observation_spec()["info_state"][0]
         self.dqn_agent = dqn.DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
-        model = torch.load("/Users/maxsebrechts/Desktop/Master/MLproj/Machine-Learning-Project/Task4/q_network.pt")
+        model = torch.load("/Users/maxsebrechts/Desktop/Master/MLproj/Machine-Learning-Project/Task4/q_network_7x7.pt")
         model.eval()
         self.dqn_agent._q_network = model
 
         self.cur_time_step = self.env.reset()
+        self.ILLEGAL_ACTION_VALUE = -np.inf
 
 
     def restart_at(self, state):
@@ -95,8 +99,9 @@ class Agent(pyspiel.Bot):
         :returns: The selected action from the legal actions, or
             `pyspiel.INVALID_ACTION` if there are no legal actions available.
         """
-        agent_output = self.dqn_agent.step(self.cur_time_step)
-        probs = self.dqn_agent._q_network(torch.Tensor(self.cur_time_step.observations["info_state"])).detach()[0]
+        agent_output = self.dqn_agent.step(self.cur_time_step, is_evaluation=True)
+        info_state = torch.Tensor(self.cur_time_step.observations["info_state"])
+        q_vals = self.dqn_agent._q_network(info_state).detach()[0]
         #print(probs)
 
         indices_valid_actions = []
@@ -117,17 +122,18 @@ class Agent(pyspiel.Bot):
         valid_probs = []
         for i in indices_valid_actions:
             if i in legal_actions:
-                valid_probs += [probs[i]]
+                valid_probs += [q_vals[i]]
             else:
-                valid_probs += [0]
+                valid_probs += [self.ILLEGAL_ACTION_VALUE]
 
-        #print(valid_probs)
+
 
         # as indices are added in proper order to indices_valid_actions, if probs are added in this order
         # to valid_probs, the order of the probs should correspond to how they would be ordered for
         # the corresponding smaller game. The index of a prob should therefore correspond to its action
+        #print(valid_probs)
         action = np.argmax(valid_probs)
-        #print("ACTION WHERE ERROR OCCURS, in 5x5", action)
+        #print("ACTION WHERE ERROR OCCURS, before transform", action)
         #print("ACTION WHERE ERROR OCCURS, in 7x7", self.action_transform(action, num_rows, num_cols))
         self.cur_time_step = self.env.step([self.action_transform(action, num_rows, num_cols)])
         #print("state 7x7")
