@@ -61,7 +61,7 @@ class Agent(pyspiel.Bot):
         self.num_actions = self.env.action_spec()["num_actions"]
         self.info_state_size = self.num_actions
         self.dqn_agent = DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
-        model = torch.load("/mnt/c/Users/ebert/Documents/KU Leuven/Master/2de Semester/Machine Learning Project laatste versie/Machine-Learning-Project/Task4/q_network7x7mod_0.pt")
+        model = torch.load("Task4/q_network7x7mod_0.pt")
         model.eval()
         self.dqn_agent._q_network = model
 
