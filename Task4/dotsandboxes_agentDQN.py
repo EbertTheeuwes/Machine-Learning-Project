@@ -20,6 +20,7 @@ from open_spiel.python.algorithms import evaluate_bots
 #from open_spiel.python.pytorch import dqn
 from open_spiel.python import rl_environment
 from DQN_algo_modified import DQN
+from sliding_window import sliding_window
 
 
 
@@ -60,7 +61,7 @@ class Agent(pyspiel.Bot):
         self.num_actions = self.env.action_spec()["num_actions"]
         self.info_state_size = self.num_actions
         self.dqn_agent = DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
-        model = torch.load("/Users/maxsebrechts/Desktop/Master/MLproj/Machine-Learning-Project/Task4/q_network7x7mod_0.pt")
+        model = torch.load("/mnt/c/Users/ebert/Documents/KU Leuven/Master/2de Semester/Machine Learning Project laatste versie/Machine-Learning-Project/Task4/q_network7x7mod_0.pt")
         model.eval()
         self.dqn_agent._q_network = model
 
@@ -82,14 +83,15 @@ class Agent(pyspiel.Bot):
         :param player_id: The ID of the player that executed an action.
         :param action: The action which the player executed.
         """
-        num_cols = state.get_game().get_parameters()["num_cols"]
-        num_rows = state.get_game().get_parameters()["num_rows"]
-        trans_action = self.action_transform(action, num_rows, num_cols)
+        #num_cols = state.get_game().get_parameters()["num_cols"]
+        #num_rows = state.get_game().get_parameters()["num_rows"]
+        #trans_action = self.action_transform(action, num_rows, num_cols)
         #print("ACTION WHERE ERROR OCCURS 5x5", action)
         #print("ACTION WHERE ERROR OCCURS 7x7", trans_action)
-        self.cur_time_step = self.env.step([trans_action])
+        #self.cur_time_step = self.env.step([trans_action])
         #print("state 7x7")
         #print(self.env.get_state)
+        pass
 
 
 
@@ -100,42 +102,72 @@ class Agent(pyspiel.Bot):
         :returns: The selected action from the legal actions, or
             `pyspiel.INVALID_ACTION` if there are no legal actions available.
         """
+        new_states, new_state_indices = sliding_window(state, self.num_rows, self.num_columns)
         agent_output = self.dqn_agent.step(self.cur_time_step, is_evaluation=True)
-        info_state = torch.Tensor([int(x) for x in self.env.get_state.dbn_string()])
-        q_vals = self.dqn_agent._q_network(info_state).detach()
+        #print(state)
+        #info_state = torch.Tensor([int(x) for x in self.env.get_state.dbn_string()])
+        #q_vals = self.dqn_agent._q_network(info_state).detach()
+        #print(q_vals)
         #print(probs)
+        #print(self.env.get_state)
+        #print(self.env.get_state.legal_actions())
 
-        indices_valid_actions = []
-        first_vertical_action_orig = self.num_columns * (self.num_rows + 1)
         num_rows = state.get_game().get_parameters()["num_rows"]
         num_cols = state.get_game().get_parameters()["num_cols"]
-        for i in range(num_rows+1):
-            for j in range(num_cols):
-                indices_valid_actions += [j + i*self.num_columns]
+        valid_probs1 = [self.ILLEGAL_ACTION_VALUE]*((num_rows+1)*num_cols + num_rows*(num_cols+1))
+        #print(valid_probs1)
+        #print(new_states)
+        legal_actions = state.legal_actions()
+        for i in range(len(new_states)):
+            info_state = torch.Tensor([int(x) for x in new_states[i]])
+            q_vals = self.dqn_agent._q_network(info_state).detach()
+            #print(q_vals)
+            for j in range(len(q_vals)):
+                index = new_state_indices[i][j]
+                if index != None and index in legal_actions and (valid_probs1[index] == self.ILLEGAL_ACTION_VALUE or valid_probs1[index] < q_vals[j]):
+                    valid_probs1[index] = q_vals[j]
+        #print(valid_probs1)
 
-        for i in range(num_rows):
-            for j in range(num_cols + 1):
-                indices_valid_actions += [first_vertical_action_orig + j + i * (self.num_columns + 1)]
 
-        legal_actions = self.env.get_state.legal_actions()
+        #indices_valid_actions = []
+        #first_vertical_action_orig = self.num_columns * (self.num_rows + 1)
+        #num_rows = state.get_game().get_parameters()["num_rows"]
+        #num_cols = state.get_game().get_parameters()["num_cols"]
+        #for i in range(num_rows+1):
+        #    for j in range(num_cols):
+        #        indices_valid_actions += [j + i*self.num_columns]
+
+        #for i in range(num_rows):
+        #    for j in range(num_cols + 1):
+        #        indices_valid_actions += [first_vertical_action_orig + j + i * (self.num_columns + 1)]
+
+        #legal_actions = self.env.get_state.legal_actions()
         #print("legal_actions : ", legal_actions)
         #print("indices_valid_actions ", indices_valid_actions)
-        valid_probs = []
-        for i in indices_valid_actions:
-            if i in legal_actions:
-                valid_probs += [q_vals[i]]
-            else:
-                valid_probs += [self.ILLEGAL_ACTION_VALUE]
+        #valid_probs = []
+        #q_vals = self.dqn_agent._q_network(info_state).detach()
+        #for i in indices_valid_actions:
+        #    if i in legal_actions:
+        #        valid_probs += [q_vals[i]]
+        #    else:
+        #        valid_probs += [self.ILLEGAL_ACTION_VALUE]
 
 
         # as indices are added in proper order to indices_valid_actions, if probs are added in this order
         # to valid_probs, the order of the probs should correspond to how they would be ordered for
         # the corresponding smaller game. The index of a prob should therefore correspond to its action
         #print(valid_probs)
-        action = np.argmax(valid_probs)
+        #action = np.argmax(valid_probs)
+        #print(action)
+        #print(valid_probs1)
+        #print(valid_probs)
+        action = np.argmax(valid_probs1)
         #print("ACTION WHERE ERROR OCCURS, before transform", action)
         #print("ACTION WHERE ERROR OCCURS, in 7x7", self.action_transform(action, num_rows, num_cols))
-        self.cur_time_step = self.env.step([self.action_transform(action, num_rows, num_cols)])
+        #print(self.action_transform(action, num_rows, num_cols))
+        #print("")
+        #self.cur_time_step = self.env.step([self.action_transform(action, num_rows, num_cols)])
+        #self.cur_time_step = self.env.step([action])
         #print("state 7x7")
         #print(self.env.get_state)
         return action
@@ -172,7 +204,7 @@ def test_api_calls():
     tournament. It should not trigger any Exceptions.
     """
     dotsandboxes_game_string = (
-        "dotsandboxes(num_rows=5,num_cols=5)")
+        "dots_and_boxes(num_rows=10,num_cols=10)")
     game = pyspiel.load_game(dotsandboxes_game_string)
     bots = [get_agent_for_tournament(player_id) for player_id in [0,1]]
     returns = evaluate_bots.evaluate_bots(game.new_initial_state(), bots, np.random)

@@ -12,7 +12,7 @@ from dotsandboxes_agent_random import AgentRand
 # test where other game is actually played (representation in DQN agent is 7x7)
 # change dimensions here to play different game
 game = pyspiel.load_game("dots_and_boxes(num_rows=7,num_cols=7)")
-env = rl_environment.Environment("dots_and_boxes(num_rows=5,num_cols=5)")
+env = rl_environment.Environment("dots_and_boxes(num_rows=6,num_cols=6)")
 num_players = env.num_players
 num_actions = env.action_spec()["num_actions"]
 info_state_size = env.observation_spec()["info_state"][0]
