@@ -17,8 +17,9 @@ import numpy as np
 import pyspiel
 import torch
 from open_spiel.python.algorithms import evaluate_bots
-from open_spiel.python.pytorch import dqn
+#from open_spiel.python.pytorch import dqn
 from open_spiel.python import rl_environment
+from DQN_algo_modified import DQN
 
 
 
@@ -57,9 +58,9 @@ class Agent(pyspiel.Bot):
         self.num_rows = 7
         self.num_columns = 7
         self.num_actions = self.env.action_spec()["num_actions"]
-        self.info_state_size = self.env.observation_spec()["info_state"][0]
-        self.dqn_agent = dqn.DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
-        model = torch.load("/Users/maxsebrechts/Desktop/Master/MLproj/Machine-Learning-Project/Task4/q_network_7x7.pt")
+        self.info_state_size = self.num_actions
+        self.dqn_agent = DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
+        model = torch.load("/Users/maxsebrechts/Desktop/Master/MLproj/Machine-Learning-Project/Task4/q_network7x7mod_0.pt")
         model.eval()
         self.dqn_agent._q_network = model
 
@@ -100,8 +101,8 @@ class Agent(pyspiel.Bot):
             `pyspiel.INVALID_ACTION` if there are no legal actions available.
         """
         agent_output = self.dqn_agent.step(self.cur_time_step, is_evaluation=True)
-        info_state = torch.Tensor(self.cur_time_step.observations["info_state"])
-        q_vals = self.dqn_agent._q_network(info_state).detach()[0]
+        info_state = torch.Tensor([int(x) for x in self.env.get_state.dbn_string()])
+        q_vals = self.dqn_agent._q_network(info_state).detach()
         #print(probs)
 
         indices_valid_actions = []
@@ -125,7 +126,6 @@ class Agent(pyspiel.Bot):
                 valid_probs += [q_vals[i]]
             else:
                 valid_probs += [self.ILLEGAL_ACTION_VALUE]
-
 
 
         # as indices are added in proper order to indices_valid_actions, if probs are added in this order

@@ -21,18 +21,22 @@ model.eval()
 dqn_agent._q_network = model
 eval_agents = [dqn_agent, random_agent.RandomAgent(1, num_actions, "Entropy Master 2000") ]
 
+
+
 num_winsDQN = 0
 num_winsRandom = 0
 for itt in range(1):
     time_step = env.reset()
-    print(time_step)
-    print(time_step.observations["info_state"])
     while not time_step.last():
+        state = [int(x) for x in env.get_state.dbn_string()]
+        print(state)
+        print(time_step.observations["info_state"])
         player_id = time_step.observations["current_player"]
         agent_output = eval_agents[player_id].step(time_step, is_evaluation=True)
         time_step = env.step([agent_output.action])
-        if player_id == 0:
-            print(agent_output.probs)
+
+        #if player_id == 0:
+            # print(agent_output.probs)
         if time_step.rewards[0] == 1:
             num_winsDQN += 1
         if time_step.rewards[1] == 1:
