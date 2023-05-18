@@ -1,60 +1,67 @@
 import pyspiel
+import sys
 import time
 from absl import app
+from symmetrien import (vertical_sym, horizontal_sym, rotate180degrees, sym2x2diagonal1, sym2x2diagonal2, 
+                        rotate90degrees2x2, rotate270degrees2x2, sym1x1diagonal1, sym1x1diagonal2, 
+                        rotate90degrees1x1, rotate270degrees1x1)
 
 transposition_table = dict()
 
-def vertical_sym(state, game):
-    params = game.get_parameters()
-    num_rows = params['num_rows']
-    num_cols = params['num_cols']
-    string = state.dbn_string()
-    half = len(string) // 2
-    new_string = ''
-    for i in range(num_rows + 1):
-        new_string += string[num_cols*i:num_cols*(i+1)][::-1]
-    for i in range(num_rows):
-        new_string += string[half + (num_cols+1)*i:half + (num_cols+1)*(i+1)][::-1]
-    #assert new_string == sym2x2vertical(state)
-    return str(new_string)
+#def vertical_sym(state, game):
+#    params = game.get_parameters()
+#    num_rows = params['num_rows']
+#    num_cols = params['num_cols']
+#    string = state.dbn_string()
+#    half = len(string) // 2
+#    new_string = ''
+#    for i in range(num_rows + 1):
+#        new_string += string[num_cols*i:num_cols*(i+1)][::-1]
+#    for i in range(num_rows):
+#        new_string += string[half + (num_cols+1)*i:half + (num_cols+1)*(i+1)][::-1]
+#    #assert new_string == sym2x2vertical(state)
+#    return str(new_string)
 
-def horizontal_sym(state, game):
-    params = game.get_parameters()
-    num_rows = params['num_rows']
-    num_cols = params['num_cols']
-    string = state.dbn_string()
-    half = len(string) // 2
-    new_string = ''
-    for i in range(num_rows + 1):
-        new_string += string[num_cols*(num_rows-i):num_cols*(num_rows-i)+num_cols]
-    for i in range(num_rows):
-        new_string += string[half + (num_cols+1)*(num_rows-1-i):half + (num_cols+1)*(num_rows-1-i)+num_cols+1]
+#def horizontal_sym(state, game):
+#    params = game.get_parameters()
+#    num_rows = params['num_rows']
+#    num_cols = params['num_cols']
+#    string = state.dbn_string()
+#    half = len(string) // 2
+#    new_string = ''
+#    for i in range(num_rows + 1):
+#        new_string += string[num_cols*(num_rows-i):num_cols*(num_rows-i)+num_cols]
+#    for i in range(num_rows):
+#        new_string += string[half + (num_cols+1)*(num_rows-1-i):half + (num_cols+1)*(num_rows-1-i)+num_cols+1]
     #assert new_string == sym2x2horizontal(state)
-    return str(new_string)
+#    return str(new_string)
 
-def sym2x2vertical(state):
-    string = state.dbn_string()
-    new_string = (string[1] + string[0] + string[3] + string[2] + string[5] + string[4] + string[8] + 
-                  string[7] + string[6] + string[11] + string[10] + string[9])
-    return str(new_string)
+#def rotate180degrees(state, game):
+#    ...
 
-def sym2x2horizontal(state):
-    string = state.dbn_string()
-    new_string = (string[4] + string[5] + string[2] + string[3] + string[0] + string[1] + string[9] + 
-                  string[10] + string[11] + string[6] + string[7] + string[8])
-    return str(new_string)
+#def sym2x2vertical(state):
+#    string = state.dbn_string()
+#    new_string = (string[1] + string[0] + string[3] + string[2] + string[5] + string[4] + string[8] + 
+#                  string[7] + string[6] + string[11] + string[10] + string[9])
+#    return str(new_string)
 
-def rotate90degrees2x2(state):
-    string = state.dbn_string()
-    new_string = (string[8] + string[11] + string[7] + string[10] + string[6] + string[9] + string[1] + 
-                  string[3] + string[5] + string[0] + string[2] + string[4])
-    return str(new_string)
+#def sym2x2horizontal(state):
+#    string = state.dbn_string()
+#    new_string = (string[4] + string[5] + string[2] + string[3] + string[0] + string[1] + string[9] + 
+#                  string[10] + string[11] + string[6] + string[7] + string[8])
+#    return str(new_string)
 
-def sym2x2diagonal(state):
-    string = state.dbn_string()
-    new_string = (string[5] + string[4] + string[3] + string[2] + string[1] + string[0] + string[11] + 
-                  string[10] + string[9] + string[8] + string[7] + string[6])
-    return str(new_string)
+#def rotate90degrees2x2(state):
+#    string = state.dbn_string()
+#    new_string = (string[8] + string[11] + string[7] + string[10] + string[6] + string[9] + string[1] + 
+#                  string[3] + string[5] + string[0] + string[2] + string[4])
+#    return str(new_string)
+
+#def sym2x2diagonal(state):
+#    string = state.dbn_string()
+#    new_string = (string[5] + string[4] + string[3] + string[2] + string[1] + string[0] + string[11] + 
+#                  string[10] + string[9] + string[8] + string[7] + string[6])
+#    return str(new_string)
 
 def get_owners(state):
     first_wins = 0
@@ -83,26 +90,36 @@ def _minimax(state, maximizing_player_id, game):
         return state.player_return(maximizing_player_id)
     
     # Kijk transposition table na
-    if (str(state.dbn_string()), get_owners(state), str(state.current_player())) in transposition_table:
-        #print("yes")
-        return transposition_table[(str(state.dbn_string()), get_owners(state), str(state.current_player()))]
+    if (str(state.dbn_string()), get_owners(state)) in transposition_table:
+        #print("yes") 
+        return transposition_table[(str(state.dbn_string()), get_owners(state))]
     player = state.current_player()
     if player == maximizing_player_id:
         selection = max
     else:
         selection = min
+
     values_children = [_minimax(state.child(action), maximizing_player_id, game) for action in state.legal_actions()]
     result = selection(values_children)
     owners = get_owners(state)
-    transposition_table[(str(state.dbn_string()), owners, str(player))] = result
-    transposition_table[(vertical_sym(state, game), owners, str(player))] = result
-    transposition_table[(horizontal_sym(state, game), owners, str(player))] = result
+    transposition_table[(str(state.dbn_string()), owners)] = result
+    transposition_table[(vertical_sym(state, game), owners)] = result
+    transposition_table[(horizontal_sym(state, game), owners)] = result
+    transposition_table[(rotate180degrees(state, game), owners)] = result
+
     params = game.get_parameters()
     num_rows = params['num_rows']
     num_cols = params['num_cols']
-    if num_rows == num_cols:
-        transposition_table[(rotate90degrees2x2(state), owners, str(player))] = result
-        transposition_table[(sym2x2diagonal(state), owners, str(player))] = result
+    if num_rows == 1 and num_cols == 1:
+        transposition_table[(sym1x1diagonal1(state), owners)] = result
+        transposition_table[(sym1x1diagonal2(state), owners)] = result
+        transposition_table[(rotate90degrees1x1(state), owners)] = result
+        transposition_table[(rotate270degrees1x1(state), owners)] = result
+    elif num_rows == 2 and num_cols == 2:
+        transposition_table[(sym2x2diagonal1(state), owners)] = result
+        transposition_table[(sym2x2diagonal2(state), owners)] = result
+        transposition_table[(rotate90degrees2x2(state), owners)] = result
+        transposition_table[(rotate270degrees2x2(state), owners)] = result
     return result
 
 
@@ -151,22 +168,23 @@ def minimax_search(game,
 
 
 def main(_):
-    start = time.time()
     games_list = pyspiel.registered_names()
     assert "dots_and_boxes" in games_list
-    game_string = "dots_and_boxes(num_rows=2,num_cols=2)"
+    game_string = "dots_and_boxes(num_rows=3,num_cols=2)"
 
-    print("Creating game: {}".format(game_string))
+    #print("Creating game: {}".format(game_string))
     game = pyspiel.load_game(game_string)
-
+    start = time.time()
     value = minimax_search(game)
 
-    if value == 0:
-        print("It's a draw")
-    else:
-        winning_player = 1 if value == 1 else 2
-        print(f"Player {winning_player} wins.")
+    #if value == 0:
+    #    print("It's a draw")
+    #else:
+    #    winning_player = 1 if value == 1 else 2
+    #    print(f"Player {winning_player} wins.")
     print(time.time() - start)
+    #print(len(transposition_table))
+    #print(times/total)
 
 
 if __name__ == "__main__":

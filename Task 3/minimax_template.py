@@ -15,6 +15,7 @@ def _minimax(state, maximizing_player_id):
     Returns:
       The optimal value of the sub-game starting in state
     """
+    #print(state.player_return(maximizing_player_id))
 
     if state.is_terminal():
         return state.player_return(maximizing_player_id)
@@ -74,22 +75,23 @@ def minimax_search(game,
 
 
 def main(_):
-    start = time.time()
     games_list = pyspiel.registered_names()
     assert "dots_and_boxes" in games_list
-    game_string = "dots_and_boxes(num_rows=2,num_cols=2)"
+    game_string = "dots_and_boxes(num_rows=3,num_cols=1)"
 
-    print("Creating game: {}".format(game_string))
+    #print("Creating game: {}".format(game_string))
     game = pyspiel.load_game(game_string)
-
+    start = time.time()
     value = minimax_search(game)
 
-    if value == 0:
-        print("It's a draw")
-    else:
-        winning_player = 1 if value == 1 else 2
-        print(f"Player {winning_player} wins.")
+    #if value == 0:
+    #    print("It's a draw")
+    #else:
+    #    winning_player = 1 if value == 1 else 2
+    #    print(f"Player {winning_player} wins.")
     print(time.time() - start)
+    #print(len(transposition_table))
+    #print(times/total)
 
 
 if __name__ == "__main__":
