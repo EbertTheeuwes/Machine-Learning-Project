@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+# encoding: utf-8
+"""
+dotsandboxes_agent.py
+
+Extend this class to provide an agent that can participate in a tournament.
+
+Created by Pieter Robberechts, Wannes Meert.
+Copyright (c) 2022 KU Leuven. All rights reserved.
+"""
+
+import sys
+import argparse
+import logging
+import random
+import numpy as np
+import pyspiel
+import torch
+from open_spiel.python.algorithms import evaluate_bots
+#from open_spiel.python.pytorch import dqn
+from open_spiel.python import rl_environment
+from DQN_algo_modified import DQN
+from sliding_window import sliding_window
+from open_spiel.python.pytorch import dqn
+import sys
+import argparse
+import logging
+import random
+import numpy as np
+import torch
+from open_spiel.python import rl_environment
+from open_spiel.python.pytorch import dqn
+import pyspiel
+from open_spiel.python.algorithms import evaluate_bots
+
+
+
+logger = logging.getLogger('be.kuleuven.cs.dtai.dotsandboxes')
+
+
+def get_agent_for_tournament(player_id):
+    """Change this function to initialize your agent.
+    This function is called by the tournament code at the beginning of the
+    tournament.
+
+    :param player_id: The integer id of the player for this bot, e.g. `0` if
+        acting as the first player.
+    """
+    my_player = Agent(player_id)
+    return my_player
+
+
+class Agent(pyspiel.Bot):
+    """Agent template"""
+
+    def __init__(self, player_id):
+        """Initialize an agent to play Dots and Boxes.
+
+        Note: This agent should make use of a pre-trained policy to enter
+        the tournament. Initializing the agent should thus take no more than
+        a few seconds.
+        """
+        # BELANGRIJK: gaan er van uit dat telkens een nieuwe game gestart wordt, niewe agent gemaakt
+        # wordt en dus deze init terug gecalled wordt, anders nog op bepaalde manier voor zorgen dat
+        # rl_environment gereset wordt.
+        pyspiel.Bot.__init__(self)
+        self.player_id = player_id
+        self.env = rl_environment.Environment("dots_and_boxes(num_rows=7,num_cols=7)")
+        # self.num_players = self.env.num_players
+        self.num_rows = 7
+        self.num_columns = 7
+        self.num_actions = self.env.action_spec()["num_actions"]
+        self.info_state_size = self.num_actions
+        self.dqn_agent = DQN(player_id=player_id, num_actions=self.num_actions, state_representation_size=self.info_state_size)
+        model = torch.load("Task4/q_network7x7mod_0.pt")
+        model.eval()
+        self.dqn_agent._q_network = model
+
+        self.cur_time_step = self.env.reset()
+        self.ILLEGAL_ACTION_VALUE = -np.inf
+
+
+
+
+        # For 7X7 grid
+        pyspiel.Bot.__init__(self)
+        self.player_id = player_id
+        model_path = 'Task4/q_network_7x7v2.pt'
+        self.my_player = dqn.DQN(player_id=player_id, num_actions=112, state_representation_size=576)
+        mlp_model = torch.load(model_path, map_location=torch.device('cpu'))
+        self.my_player._q_network.load_state_dict(mlp_model.state_dict())
+        self.env2=""
+        self.timestep2=""
+
+
+    def restart_at(self, state):
+        """Starting a new game in the given state.
+
+        :param state: The initial state of the game.
+        """
+        num_cols = state.get_game().get_parameters()["num_cols"]
+        num_rows = state.get_game().get_parameters()["num_rows"]
+        if num_cols == 7 and num_rows == 7:
+            self.env2 = rl_environment.Environment(state.get_game())
+            self.env2._state=state
+            self.timestep2 =self.env.get_time_step()
+        else:
+            pass
+
+    def inform_action(self, state, player_id, action):
+        """Let the bot know of the other agent's actions.
+
+        :param state: The current state of the game.
+        :param player_id: The ID of the player that executed an action.
+        :param action: The action which the player executed.
+        """
+        #num_cols = state.get_game().get_parameters()["num_cols"]
+        #num_rows = state.get_game().get_parameters()["num_rows"]
+        #trans_action = self.action_transform(action, num_rows, num_cols)
+        #print("ACTION WHERE ERROR OCCURS 5x5", action)
+        #print("ACTION WHERE ERROR OCCURS 7x7", trans_action)
+        #self.cur_time_step = self.env.step([trans_action])
+        #print("state 7x7")
+        #print(self.env.get_state)
+        pass
+
+
+
+    def step(self, state):
+        """Returns the selected action in the given state.
+
+        :param state: The current state of the game.
+        :returns: The selected action from the legal actions, or
+            `pyspiel.INVALID_ACTION` if there are no legal actions available.
+        """
+        num_cols = state.get_game().get_parameters()["num_cols"]
+        num_rows = state.get_game().get_parameters()["num_rows"]
+        if num_cols == 7 and num_rows == 7:
+            self.env2 = rl_environment.Environment(state.get_game())
+            self.env2._state=state
+            self.timestep2 =self.env2.get_time_step()
+            action=self.my_player.step(self.timestep2, is_evaluation=True)[0]
+            return action
+
+        new_states, new_state_indices = sliding_window(state, self.num_rows, self.num_columns)
+        agent_output = self.dqn_agent.step(self.cur_time_step, is_evaluation=True)
+        #print(state)
+        #info_state = torch.Tensor([int(x) for x in self.env.get_state.dbn_string()])
+        #q_vals = self.dqn_agent._q_network(info_state).detach()
+        #print(q_vals)
+        #print(probs)
+        #print(self.env.get_state)
+        #print(self.env.get_state.legal_actions())
+
+        num_rows = state.get_game().get_parameters()["num_rows"]
+        num_cols = state.get_game().get_parameters()["num_cols"]
+        valid_probs1 = [self.ILLEGAL_ACTION_VALUE]*((num_rows+1)*num_cols + num_rows*(num_cols+1))
+        #print(valid_probs1)
+        #print(new_states)
+        legal_actions = state.legal_actions()
+        for i in range(len(new_states)):
+            info_state = torch.Tensor([int(x) for x in new_states[i]])
+            q_vals = self.dqn_agent._q_network(info_state).detach()
+            #print(q_vals)
+            for j in range(len(q_vals)):
+                index = new_state_indices[i][j]
+                if index != None and index in legal_actions and (valid_probs1[index] == self.ILLEGAL_ACTION_VALUE or valid_probs1[index] < q_vals[j]):
+                    valid_probs1[index] = q_vals[j]
+        #print(valid_probs1)
+
+
+        #indices_valid_actions = []
+        #first_vertical_action_orig = self.num_columns * (self.num_rows + 1)
+        #num_rows = state.get_game().get_parameters()["num_rows"]
+        #num_cols = state.get_game().get_parameters()["num_cols"]
+        #for i in range(num_rows+1):
+        #    for j in range(num_cols):
+        #        indices_valid_actions += [j + i*self.num_columns]
+
+        #for i in range(num_rows):
+        #    for j in range(num_cols + 1):
+        #        indices_valid_actions += [first_vertical_action_orig + j + i * (self.num_columns + 1)]
+
+        #legal_actions = self.env.get_state.legal_actions()
+        #print("legal_actions : ", legal_actions)
+        #print("indices_valid_actions ", indices_valid_actions)
+        #valid_probs = []
+        #q_vals = self.dqn_agent._q_network(info_state).detach()
+        #for i in indices_valid_actions:
+        #    if i in legal_actions:
+        #        valid_probs += [q_vals[i]]
+        #    else:
+        #        valid_probs += [self.ILLEGAL_ACTION_VALUE]
+
+
+        # as indices are added in proper order to indices_valid_actions, if probs are added in this order
+        # to valid_probs, the order of the probs should correspond to how they would be ordered for
+        # the corresponding smaller game. The index of a prob should therefore correspond to its action
+        #print(valid_probs)
+        #action = np.argmax(valid_probs)
+        #print(action)
+        #print(valid_probs1)
+        #print(valid_probs)
+        action = np.argmax(valid_probs1)
+        #print("ACTION WHERE ERROR OCCURS, before transform", action)
+        #print("ACTION WHERE ERROR OCCURS, in 7x7", self.action_transform(action, num_rows, num_cols))
+        #print(self.action_transform(action, num_rows, num_cols))
+        #print("")
+        #self.cur_time_step = self.env.step([self.action_transform(action, num_rows, num_cols)])
+        #self.cur_time_step = self.env.step([action])
+        #print("state 7x7")
+        #print(self.env.get_state)
+        return action
+
+
+
+    def action_transform(self, action, num_rows, num_cols):
+        """
+
+        :param num_cols: number of columns in grid of game
+        :param num_rows: number of rows in grid of game
+        :param action: action in grid of game
+        :return: corresponding action in 7x7 board
+        """
+        first_horizontal_action = (num_cols * (num_rows + 1))
+        first_horizontal_action_orig = self.num_columns * (self.num_rows + 1)
+        if action < first_horizontal_action:
+            column = action % num_cols
+            row = action // num_cols
+            trans_action = row * self.num_columns + column
+        else:
+            action2 = action - first_horizontal_action
+            column = action2 % (num_cols + 1)
+            row = action2 // (num_cols + 1)
+            first_horizontal_action_orig = self.num_columns * (self.num_rows + 1)
+            trans_action = first_horizontal_action_orig + row * (self.num_columns + 1) + column
+
+        return trans_action
+
+
+
+def test_api_calls():
+    """This method calls a number of API calls that are required for the
+    tournament. It should not trigger any Exceptions.
+    """
+    dotsandboxes_game_string = (
+        "dots_and_boxes(num_rows=7,num_cols=7)")
+    game = pyspiel.load_game(dotsandboxes_game_string)
+    bots = [get_agent_for_tournament(player_id) for player_id in [0,1]]
+    returns = evaluate_bots.evaluate_bots(game.new_initial_state(), bots, np.random)
+    assert len(returns) == 2
+    assert isinstance(returns[0], float)
+    assert isinstance(returns[1], float)
+    print("SUCCESS!")
+
+
+def main(argv=None):
+    test_api_calls()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
